@@ -1,0 +1,55 @@
+name: VPN Gate SSTP 每日检测
+
+on:
+  schedule:
+    - cron: '0 19 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: sstp-gate-check
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: 抓取 VPN Gate 节点 + Cloudflare Worker 检测 + 生成页面
+        run: python vpngate.py
+        env:
+          CHECK_WORKER: 'https://check.eel.kdns.fr/check?sstp=vpn:vpn@'
+          CHECK_CONCURRENCY: '32'
+          CHECK_TIMEOUT: '90'
+          EDT_UUID: '5a1e2d47-9ec7-4ad4-9d7e-3425ceda9de8'
+          EDT_DOMAIN: 'edt.eel.kdns.fr'
+          SUB_URL: 'https://nbacj769-svg.github.io/sstp-gate/sub.txt'
+          CHAIN_URL: 'https://nbacj769-svg.github.io/sstp-gate/chains.txt'
+          HOSTS_URL: 'https://nbacj769-svg.github.io/sstp-gate/hosts.txt'
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'public'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
